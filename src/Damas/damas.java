@@ -684,7 +684,7 @@ public class damas extends JFrame {
     				squares[i][j].setPosition(i, j);
     				squares[i][j].setEliminar(eliminar);
     				squares[i][j].setPadre(posicion);
-    				System.out.println("2["+posicion[0]+"]"+"["+posicion[1]+"]");
+    				System.out.println("2["+posicion[0]+"]"+"["+posicion[1]+"]" +  tipo);
     				return true;
     			}
     		}
