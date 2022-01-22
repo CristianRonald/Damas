@@ -21,6 +21,7 @@ public class interfaz extends JFrame {
 	private Image logo = null;
 	private JPanel fondo;
 	private int id = 0 ;
+	public int posicion[] = {0,0};
    public interfaz() {
 	   initPantalla();
 	   initBotones();
@@ -31,6 +32,12 @@ public class interfaz extends JFrame {
 	   initBotones();
 	   initLogo();
 	   this.id = id;
+   }
+   public interfaz(int[] posicion) {
+	   initPantalla();
+	   initBotones();
+	   initLogo();
+	   this.posicion = posicion;
    }
    private void initLogo() {
 	   BufferedImage lg;
@@ -85,7 +92,7 @@ public class interfaz extends JFrame {
 		   @Override
            public void actionPerformed(ActionEvent event){
 			   setVisible(false);
-               new damas();
+               new damas(posicion[0],posicion[1],id);
            }
 	   });
 	   botones[1].addActionListener(new ActionListener() {
@@ -100,6 +107,13 @@ public class interfaz extends JFrame {
 	            	
 			   	}
 			   }
+	   });
+	   botones[2].addActionListener(new ActionListener() {
+		   @Override
+           public void actionPerformed(ActionEvent event){
+			 setVisible(false);
+			new customizacion();
+		   }
 	   });
 	   loguear.addActionListener(new ActionListener() {
 		   public void actionPerformed(ActionEvent e) {

@@ -5,6 +5,11 @@ import javax.swing.border.Border;
 import javax.imageio.*;
 import java.awt.*;
 import java.awt.image.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 
@@ -16,15 +21,32 @@ public class damas extends JFrame {
     activar a;
     dama d[] = new dama[8];
     Image bl = null, ng = null;
+    boolean doble_click = false,soplo_b = false;
+    int[] anterior = new int[2];
+    private boolean isnextWhite = true;
+    boolean aux = false;
+    persona u;
+    int id;
     
-
-    // BufferedImage blancas;
-    // Image bl = null;
-
-    public damas() {
+    int[][] colores_a = {
+			{ 0, 0, 255 },
+			{ 228, 255, 0},
+			{ 255, 0, 220} ,
+			{   120, 10, 135  }
+	};
+	int[][] colores_b = {
+			{200, 197, 252},
+			{217, 222, 143 },
+			{ 222, 143, 222 } ,
+			{  155, 143, 222  }
+	};
+	Color color_a, color_b;
+    public damas(int i, int j,int id) {
+    	crearUsuario(id);
         initTablero();
-        initBotones();
+        initBotones(i,j);
         tableroEstadisticas();
+        this.id = id;
         // try {
         // blancas = ImageIO.read(getClass().getResource("piezas/blancas.png"));
         // bl = blancas.getScaledInstance(10, 10, Image.SCALE_SMOOTH);
@@ -60,6 +82,66 @@ public class damas extends JFrame {
 
         return false;
     }
+    public void subirDatos(int id, int elo, int ganadas, int perdidas) {
+    	System.out.println( id+""+elo+"" + ganadas+""+ perdidas);
+    	String sql;
+        try {
+            Connection con = null;
+            String sURL = "jdbc:mysql://localhost:3306/usuarios";
+            con = DriverManager.getConnection(sURL, "root", "cris2021");
+            
+            sql = "UPDATE estadisticas SET elo=?, ganadas=?, perdidas=?"
+            + "WHERE id=?";
+            PreparedStatement ps = con.prepareStatement(sql);
+ 
+            ps = con.prepareStatement(sql);
+            
+            ps.setInt(1, id);
+            ps.setInt(2, elo);
+            ps.setInt(3, ganadas);
+            ps.setInt(4, perdidas);
+            
+            ps.executeUpdate();
+            	JFrame frame = new JFrame();
+            	JOptionPane.showMessageDialog(frame, "Datos subidos correctamente.");
+        } catch (Exception e) {
+            System.err.println("Error: "+ e.getMessage());
+        }
+    }
+    public void crearUsuario(int id){
+    	int cont = 1;
+		 String[] datos = new String[2];
+		 int[] estadisticas = new int[4];
+		 try {
+	            Connection con = null;
+	            String sURL = "jdbc:mysql://localhost:3306/usuarios";
+	            con = DriverManager.getConnection(sURL, "root", "cris2021");
+	            Statement myStament = con.createStatement();
+	            ResultSet myResultSet = myStament.executeQuery("SELECT * FROM usuario;");
+	            while(myResultSet.next()) {
+	            	if(cont == id) {
+	            		datos[1] = myResultSet.getString("correo");
+	            		datos[0] = myResultSet.getString("apodo");
+	            	}
+	            	cont++;
+	            }
+	            cont = 1;
+	            myResultSet = myStament.executeQuery("SELECT * FROM estadisticas;");
+	            while(myResultSet.next()) {
+	            	if(cont == id) {
+	            		estadisticas[1] = myResultSet.getInt("ganadas");
+	            		estadisticas[2] = myResultSet.getInt("perdidas");
+	            		estadisticas[3] = myResultSet.getInt("empatadas");
+	            		estadisticas[0] = myResultSet.getInt("elo");
+	            	}
+	            	cont++;
+	            }
+
+	        } catch (Exception e) {
+	            System.err.println("Error: " + e.getMessage() );
+	        }
+		 u = new persona(estadisticas,datos);
+    }
     public void tableroEstadisticas() {
     	JPanel panel_botones = new JPanel();
     	panel_botones.setLayout(new GridLayout(2,1,10,10));
@@ -82,28 +164,56 @@ public class damas extends JFrame {
     	panel.setBackground(Color.white);
     	panel.setBounds(550,80,200,300);
     	JLabel names[] = new JLabel[2];
+    	String names_s[] = new String[2];
+    	names_s[0] = u.getDatos()[0];
+    	names_s[1] = "GOES";
     	for(int i = 0; i < 2; i++ ) {
-    		names[i] = new JLabel("Text",SwingConstants.CENTER);
+    		names[i] = new JLabel(names_s[i],SwingConstants.CENTER);
     		names[i].setPreferredSize(new Dimension(10,30));
-    		names[i].setFont(new Font("Zekton",Font.BOLD,14));
+    	 	names[i].setFont(new Font("Zekton",Font.BOLD,14));
     	}
     	panel.add(names[0],BorderLayout.SOUTH);
     	panel.add(names[1],BorderLayout.NORTH);
     	
-    	
+    	soplo.addActionListener(new ActionListener() {
+    		public void actionPerformed(ActionEvent e) {
+    	      if(!isnextWhite) {
+    	    	  a.activar_ficha("blanco");
+    	      }else {
+    	    	  a.activar_ficha("negro");
+    	    	  
+    	      }
+    	      soplo_b = true;
+    		}
+    		
+    	});
+    	rendirse.addActionListener(new ActionListener() {
+    		public void actionPerformed(ActionEvent e) {
+    			if(!isnextWhite) {
+    				mostrarGanador("El ganador es blanco" );
+    				u.getEstadisticas()[0] += 5;
+    				u.getEstadisticas()[1] += 1;
+    			}else {
+      	    	  	mostrarGanador("El ganador es negro" );
+      	    	  		u.getEstadisticas()[0] -= 5;
+      	    	  		u.getEstadisticas()[2] += 1;
+    			}
+    			subirDatos(id,u.getEstadisticas()[0],u.getEstadisticas()[1],u.getEstadisticas()[2]);
+    		}
+    		
+    	});
     	
     		
     }
-    public void boton_soplo() {
-    	
-    }
+    
 
-    public void initBotones() {
+    public void initBotones(int k,int l) {
 
     	tablero.setBounds(20,20,480, 480);
         tablero.setLayout(new GridLayout(8, 8, 1, 1));
         BufferedImage blancas, negras;
-        
+        color_a = new Color(colores_a[k][0], colores_a[k][1], colores_a[k][2]);
+        color_b = new Color(colores_b[l][0], colores_b[l][1], colores_b[l][2]);
         try {
             blancas = ImageIO.read(getClass().getResource("piezas/blancas.png"));
             negras = ImageIO.read(getClass().getResource("piezas/negras.png"));
@@ -130,10 +240,10 @@ public class damas extends JFrame {
                     }
 
                     squares[i][j].setFocusPainted(false);
-                    squares[i][j].setBackground(Color.blue);
+                    squares[i][j].setBackground(color_a);
                     squares[i][j].setOpaque(true);
                 } else {
-                    squares[i][j].setBackground(new Color(200, 197, 252));
+                    squares[i][j].setBackground(color_b);
                     squares[i][j].setEnabled(false);
 
                 }
@@ -148,23 +258,24 @@ public class damas extends JFrame {
     }
 
     public void validarSquare(int[] nums, int[] padre) {
-        for (int i = 0; i < 8; i++) {
-            for (int j = 0; j < 8; j++) {
-                if (i == nums[0] && j == nums[1] && !squares[i][j].getTipoSquare()) {
+    	
+        int i = nums[0], j = nums[1];
+                if (!squares[i][j].getTipoSquare()) {
                     squares[i][j].setTipo("paso");
                     squares[i][j].setEnabled(true);
                     squares[i][j].setPosition(i, j);
                     squares[i][j].setPadre(padre);
                     squares[i][j].setBackground(Color.red);
-                } else if (i == nums[0] && j == nums[1] && squares[i][j].getTipoSquare()) {
+                    
+                } else if (squares[i][j].getTipoSquare()) {
                     if (!squares[i][j].getTipo().equals(squares[padre[0]][padre[1]].getTipo())) {
                         squares[i][j].comer(i, j, padre);
+                        aux = true;
                     }
                 }
+                
             }
-        }
-    }
-
+   
     public void comerSquare(int[] nums, int[] padre) {
         if (!squares[nums[0]][nums[1]].getTipoSquare()) {
             squares[nums[0]][nums[1]].setTipo("comer");
@@ -175,7 +286,7 @@ public class damas extends JFrame {
         }
     }
 
-    public void avanzar(int i, int j, int[] posicion_padre) {
+    public void avanzar(int i, int j, int[] posicion_padre,boolean comer) {
 
         String padre = squares[posicion_padre[0]][posicion_padre[1]].getTipo();
         BufferedImage blancas, negras;
@@ -201,6 +312,9 @@ public class damas extends JFrame {
                 if (i == k && j == l) {
                     squares[k][l].setIcon(new ImageIcon(ext));
                     squares[k][l].setFicha(padre);
+                    squares[k][l].setEnabled(!comer);
+                    if(comer && aux)
+                    	squares[k][l].setSoplo(true);
                 }
 
             }
@@ -215,6 +329,19 @@ public class damas extends JFrame {
 
     }
     // desactivar fichas
+    public void borrarPasos_an(int[] nums) {
+    	int pasos[][] = squares[nums[0]][nums[1]].getPasos();
+        for (int k = 0; k < 2; k++) {
+            	if (!squares[pasos[k][0]][pasos[k][1]].getTipoSquare() ) {
+                    squares[pasos[k][0]][pasos[k][1]].setficha_v();
+            	}
+            	if (pasos[0][0] != pasos[1][0]) {
+                squares[pasos[0][0]][pasos[0][1]].setBackground(color_a);
+            	} else {
+                squares[pasos[k][0]][pasos[k][1]].setBackground(color_a);
+            	}
+            }
+    }
 
     public void borrarPasos(int[] posicion, int[] nums) {
 
@@ -229,36 +356,41 @@ public class damas extends JFrame {
                     squares[pasos[k][0]][pasos[k][1]].setficha_v();
             }
             if (pasos[0][0] != pasos[1][0]) {
-                squares[pasos[0][0]][pasos[0][1]].setBackground(Color.blue);
+                squares[pasos[0][0]][pasos[0][1]].setBackground(color_a);
             } else {
-                squares[pasos[k][0]][pasos[k][1]].setBackground(Color.blue);
+                squares[pasos[k][0]][pasos[k][1]].setBackground(color_a);
             }
 
         }
 
     }
-
-    public JButton[][] winner() {
-        int cont = 0;
+    
+    public String winner() {
+        int cont = 0; String tipo = "";
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
                 if (squares[i][j].getTipoSquare()) {
                     cont++;
+                    tipo = squares[i][j].getTipo();
                 }
             }
         }
         if (cont == 1) {
-            return squares;
+            return "El ganador es el" + tipo;
+        }else if(cont == 2) {
+        	return  "Empate";
         }
         return null;
     }
 
     public void mostrarGanador(String ganador) {
-
+    	
+    	JFrame frame = new JFrame();
+    	JOptionPane.showMessageDialog(frame,ganador );
     }
 
     public static void main(String[] args) {
-        new damas();
+        new damas(0,0,1);
     }
 
     class ficha extends JButton implements ActionListener {
@@ -268,6 +400,7 @@ public class damas extends JFrame {
         private int[][] pasos = new int[2][2];
         private boolean t_ficha = true ,dama = false;// revisar si el square es una ficha o un movimiento
         private int pos_dama = 0;
+        boolean soplo = false;
         public ficha(int i, int j, String tipo) {
 
             this.posicion[0] = i;
@@ -293,12 +426,17 @@ public class damas extends JFrame {
         public int getPositionDama() {
         	return pos_dama;
         }
+        public void setPositionDama(int pos_dama) {
+        	this.pos_dama = pos_dama;
+        }
         public void setficha_v() {
             t_ficha = false;
             tipo = "";
             setEnabled(false);
         }
-
+        public void setSoplo(boolean soplo) {
+        	this.soplo = soplo;
+        }
         public void setEliminar(int[] eliminar) {
             this.eliminar = eliminar;
         }
@@ -316,8 +454,8 @@ public class damas extends JFrame {
             this.posicion[1] = j;
 
         }
-        public void setTipoDama() {
-        	this.dama = true;
+        public void setTipoDama(boolean dama) {
+        	this.dama = dama;
         }
         public boolean getTipoSquare() {
             return this.t_ficha;
@@ -335,6 +473,9 @@ public class damas extends JFrame {
         public int[][] getPasos() {
             return this.pasos;
         }
+        public boolean getSoplo() {
+        	return this.soplo;
+        }
         public void setDama() {
         	if(posicion[0] == 7 && tipo.equals("negro")) {
         		d[cont_damas]= new dama(posicion[0],posicion[1]);	
@@ -349,61 +490,86 @@ public class damas extends JFrame {
        		 	cont_damas++;
         	}
         }
+      
         public void actionPerformed(ActionEvent e) {
-        	
-        	
-            if (!"paso".equals(tipo) && !"comer".equals(tipo) && !dama && !("comer_d".equals(tipo))) {
-            	
+        	  if(soplo && soplo_b) {
+        		soplo = false;
+        		soplo_b = false;
+        		aux = false;
+        		if(isnextWhite) {
+      	    	  a.activar_ficha("blanco");
+      	      }else {
+      	    	  a.activar_ficha("negro");
+      	    	  
+      	      }
+        		
+              	borrarPadre(posicion);
+              }else if (!"paso".equals(tipo) && !"comer".equals(tipo) && !dama && !("comer_d".equals(tipo))) {
+            	if(doble_click) {
+                	borrarPasos_an(anterior);
+                }
                 if (pasos[0][0] != pasos[1][0]) { // pa los costados
                     validarSquare(pasos[0], posicion);
-                    
-                    
+                    doble_click = true; 
                 } else {
+                	if(doble_click) {
+                    	borrarPasos_an(anterior);
+                    }
                     for (int i = 0; i < 2; i++) {
                         validarSquare(pasos[i], posicion);
                     }
-                                         
+                    doble_click = true;                 
                 }
+                anterior = posicion;
             } else {
             	if(dama || "comer_d".equals(tipo)) {
             		if(dama) {
-            			d[pos_dama].movimiento();
+            			d[pos_dama].movimiento(padre);
             		}else {
-            			d[pos_dama].comer_square(posicion[0],posicion[1],padre);            			
-            			setTipoDama();
-            			borrarPadre(eliminar);
+            			if("comer_d".equals(tipo)){
+            				System.out.println(padre[0] +","+ padre[1]);
+            				d[pos_dama].comer_square(posicion[0],posicion[1],padre);
+            				borrarPadre(eliminar);
+            			}
+            			setTipoDama(true);
             		}
             	}else {
+            		boolean comer = false;
             		if (tipo.equals("comer")) {
+            			setSoplo(false);
             			borrarPadre(eliminar);
-            			setBackground(Color.blue);
+            			setBackground(color_a);
+            		}else {
+            			a.setSiguiente();
+            			comer = true;
+            			           			
             		}
-            		avanzar(posicion[0], posicion[1], padre);
+            		avanzar(posicion[0], posicion[1], padre,comer);
             		setDama();
             		borrarPasos(posicion, padre);
-            		a.setSiguiente();
             	}
-            }
-            
-
+            		doble_click = false;
+            	}
         }
 
         public void comer(int i, int j, int[] padre) {
             if (winner() != null) {
-                System.out.println();
+            	mostrarGanador(winner());
             }
 
             int pasos[][] = obtenerPasos(i, j, true);
-            int[] paso_final = new int[2], borrar = new int[2];
+            int[] paso_final = {-1,-1}, borrar = new int[2];
             for (int k = 0; k < 2; k++) {
                 if (padre[1] > j && j > pasos[k][1] || padre[1] < j && j < pasos[k][1]) {
                     paso_final = pasos[k];
                 }
             }
-            borrar[0] = i;
-            borrar[1] = j;
-            squares[paso_final[0]][paso_final[1]].setEliminar(borrar);
-            comerSquare(paso_final, padre);
+            if(paso_final[0]>=0) {
+            	borrar[0] = i;
+            	borrar[1] = j;
+            	squares[paso_final[0]][paso_final[1]].setEliminar(borrar);
+            	comerSquare(paso_final, padre);
+            }
 
         }
 
@@ -456,9 +622,9 @@ public class damas extends JFrame {
     }
 
     class activar extends ficha {
-        private boolean isnextWhite = true;
-        // Al hacer click en una ficha
 
+        // Al hacer click en una ficha
+        
         public activar(int[] posicion) {
             for (int i = 0; i < 8; i++) {
                 for (int j = 0; j < 8; j++) {
@@ -511,16 +677,52 @@ public class damas extends JFrame {
                 }
             }
         }
+        public void limpiar() {
+        	 for (int i = 0; i < 8; i++) {
+                 for (int j = 0; j < 8; j++) {
+                     if (!squares[i][j].getTipoSquare()) {
+                    	 squares[i][j].setficha_v();
+                     }
+                 }
+             }
+        }
+        public void activar_ficha(String ficha) {
+        	String aux,des;
+        	if(ficha.equals("blanco")) {
+        		aux = "blanco";
+        		des = "negro";
+        		
+        	}else {
+        		des = "blanco";
+        		aux = "negro";
+        	}
+        		
+        	
+        	for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 8; j++) {
+                    if (squares[i][j].getTipoSquare() && squares[i][j].getTipo().equals(des)) {
+                        squares[i][j].setEnabled(false);
+                    }
+                }
+            }
+        	for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 8; j++) {
+                    if (squares[i][j].getTipoSquare() && squares[i][j].getTipo().equals(aux)) {
+                        squares[i][j].setEnabled(true);
+                    }
+                }
+            }
+        }
     }
     class dama extends ficha{
-    	private int  posicion[] = new int[2];
+    	private int  posicion[] = new int[2], padre[] = new int[2];
     	private String tipo = "";
+    	
     	public boolean tipo_paso = false;
     	public dama(int i, int j) {
     		posicion[0] = i; 
     		posicion[1] = j; 
     		this.tipo = squares[posicion[0]][posicion[1]].getTipo();
-    		
     		
     	}
     	public dama(int i, int j, String Tipo) {
@@ -528,7 +730,13 @@ public class damas extends JFrame {
     		posicion[1] = j;
     		this.tipo = Tipo;
     	}
-    	public void movimiento() {
+    	public void setPadre(int[] padre) {
+    		this.padre = padre;
+    	}
+    	public void movimiento(int[] padre) {
+    		int[][] mandar = new int[8][2];
+    		boolean[] pasos = new boolean[8];
+    		int cont = 0;
     		// por la derecha adelante
     		int aux = 0;
     		int pos_inic = posicion[0]-posicion[1];
@@ -552,7 +760,8 @@ public class damas extends JFrame {
     					}
     					else {
     						if(!squares[i][j].getTipo().equals(this.tipo)) {
-    							active_comer =comer(i,j);    			
+    							
+    							active_comer =comer_d(i,j,padre);    			
     						}else {
     							active_comer =false;
     						}
@@ -562,10 +771,21 @@ public class damas extends JFrame {
 							active_comer = false;
 							}
     					//System.out.println("1["+i+"]"+"["+j+"]"+active+"["+active_comer+"]");
+    					mandar[cont][0] = i;
+    					mandar[cont][1] = j;
+    					pasos[cont] = active;
+    					cont++;
     				}
     			}
     			aux++;
     		}
+    		pasos = revisar(mandar,pasos,cont);
+    		for(int i = 0;i<cont;i++) {
+    			if(!pasos[i]) {
+    				squares[mandar[i][0]][mandar[i][1]].setBackground(color_a);
+    			}
+    		}
+    		cont = 0;
     		pos_inic = posicion[0]+posicion[1];
     		if( pos_inic > 7) {
     			aux = pos_inic - 7;
@@ -583,7 +803,7 @@ public class damas extends JFrame {
     					}
     					else {
     						if(!squares[i][j].getTipo().equals(this.tipo)) {
-    							active_comer = comer(i,j);
+    							active_comer = comer_d(i,j,padre);
     						}	else {
     							active_comer =false;
     						}
@@ -593,104 +813,161 @@ public class damas extends JFrame {
 							active_comer = false;
 							}
     					//System.out.println("2["+i+"]"+"["+j+"]"+active+"["+active_comer+"]");
+    					mandar[cont][0] = i;
+    					mandar[cont][1] = j;
+    					pasos[cont] = active;
+    					cont++;
     				}
     			}
     			aux++;
     		}
-    		
+    		pasos = revisar(mandar,pasos,cont);
+    		for(int i = 0;i<cont;i++) {
+    			if(!pasos[i]) {
+    				squares[mandar[i][0]][mandar[i][1]].setBackground(color_a);
+    			} else {
+    				if(!active_comer) {
+    					squares[mandar[i][0]][mandar[i][1]].setTipo("paso_d");
+    					squares[mandar[i][0]][mandar[i][1]].setEnabled(true);
+    					squares[mandar[i][0]][mandar[i][1]].setPosition(mandar[i][0], mandar[i][1]);
+    					squares[mandar[i][0]][mandar[i][1]].setPadre(posicion);
+    					squares[mandar[i][0]][mandar[i][1]].setBackground(Color.red);
+    					}
+    				}
+    			}
     		
     	}
+    	public boolean[] revisar(int[][] puntos, boolean[] pasos, int cont) {
+    		int contador = 0;
+    		int i = 0, j = 0 ;
+    		if(posicion[1] < puntos[cont - 1][1]) {
+    			while(i < 2 || j<cont){
+    				if(!pasos[j] ) {
+    					if(!(squares[puntos[j][0]][puntos[j][1]].getTipo().equals(this.tipo))) {
+    						i++;
+    					}
+    					if(squares[puntos[j][0]][puntos[j][1]].getTipo().equals(this.tipo)) {
+    						if(squares[puntos[j][0]][puntos[j][1]].getTipo().equals(this.tipo)&& !(puntos[j][0]==posicion[0] && puntos[j][1]==posicion[1])) {
+        						for(int k = j; k < cont;k++) {
+        							pasos[k] = false;
+        						}
+        					}
+    					}
+    					contador++;
+    				}
+    				j++;
+    			}
+    			if(i>1) {
+    				for(j =contador; j <cont;  j++) {
+    					if(pasos[j] ) {
+    						pasos[j] = false;
+    					}
+    				}
+    			}
+    		} else {
+    			i = 0;j=0;
+    			while(i < 2 || j<cont){
+    				if(!pasos[j] ) {
+    					if(!(squares[puntos[j][0]][puntos[j][1]].getTipo().equals(this.tipo))) {
+    						i++;
+    					}
+    					if(squares[puntos[j][0]][puntos[j][1]].getTipo().equals(this.tipo)  ) {
+    						for(int k = 0; k >j;k++) {
+    							pasos[k] = false;
+    						}
+    					}
+    					contador++;
+    				}
+    				j++;
+    				
+    			}
+    			if(i>1) {
+    				for(j =0; j < contador-1; j++) {
+    					if(pasos[j] ) {
+    						pasos[j] = false;
+    					}
+    				}
+    			}
+    		}
+    		for(i=0;i<cont;i++) {
+    			//System.out.println(pasos[i]);
+    		}
+    		return pasos;
+    	}
     	 public void comer_square(int i,int j,int[] padre) {
-    	    	squares[i][j].setBackground(Color.blue);
-    	    	System.out.println("->"+squares[padre[0]][padre[1]].getTipo());
-    	    	if(squares[padre[0]][padre[1]].getTipo().equals("blanco")) {
+    		 
+    	    	squares[i][j].setBackground(color_a);
+    	    	squares[i][j].setTipo(this.tipo); 
+    	    	System.out.println(squares[i][j].getTipo());
+    	    	borrarPadre(padre);
+    	    	if(squares[i][j].getTipo().equals("blanco")) {
     	    		squares[i][j].setIcon(new ImageIcon(bl));
     	    	}else {
     	    		squares[i][j].setIcon(new ImageIcon(ng));
     	    	}
-    	    	 squares[i][j] = squares[padre[0]][padre[1]];
+    	    	 squares[i][j].setPositionDama(squares[padre[0]][padre[1]].getPositionDama()); 
     	    	 squares[i][j].setTipoSquare(true);
-    	    	 squares[i][j].setTipo(tipo);
-    	    	 setPosition(i,j);
-    	    	 borrarPadre(padre);
-    	    	 borrar(padre);
+    	    	 this.setPadre(posicion);
+   				 this.setPosition(i, j);
+   				 
+    	    	 
     	    	}
-    	private void borrar(int[] padre){
-    		int aux = 0;
-    		int pos_inic = padre[0]-padre[1];
-    		if( pos_inic < 0) {
-    			aux = pos_inic * -1;
-    			pos_inic = 0;
-    		}
-    		else {
-    			aux = 0;
-    		}
-    		for(int i = pos_inic; i< 8; i++) {
-    			for(int j = 0; j<8; j++) {
-    				if(aux == j && !squares[i][j].getTipoSquare()) {    					
-						squares[i][j].setBackground(Color.blue);
-				}
-    			}
-    			aux++;
-    		}
-    		pos_inic = padre[0]+padre[1];
-    		if( pos_inic > 7) {
-    			aux = pos_inic - 7;
-    			pos_inic = 7;
-    		}
-    		else {
-    			aux = 0;
-    		}
-    		for(int i = pos_inic; i>0; i--) {
-    			for(int j = 0; j<8; j++) {
-    				if(aux == j && !squares[i][j].getTipoSquare()) {    					
-    						squares[i][j].setBackground(Color.blue);
-    				}
-    			}
-    			aux++;
-    		}
-    		
-    		
-    	}
+    	  public boolean comer_d(int i, int j,int[] padre) {
+    		 
+      		int[] eliminar = new int[2];
+      		if((i>0 && i<7) && (j>0 && j<7)) {
+      			eliminar[0] = i;
+      			eliminar[1] = j;
+      			if(posicion[1] > j) {
+      				j--;
+      				if(i<posicion[0]) {			
+      					i--;   			
+      				}else {
+      					i++;
+      				}
+      			}else {
+      					j++;
+      				if(i<posicion[0]) {
+      					i--;
+      				}else {
+      					i++;
+      				}
+      			}
+      			if(!squares[i][j].getTipoSquare()) {	
+      				squares[i][j].setBackground(Color.green);					
+      				squares[i][j].setTipo("comer_d");
+      				squares[i][j].setEnabled(true);
+      				squares[i][j].setPosition(i, j);
+      				squares[i][j].setEliminar(eliminar);
+      				squares[i][j].setPadre(posicion);
+      				
+      				return true;
+      			}
+      		}
+      			return false;
+      	}
     	public void setPosition(int i,int j) {
     		posicion[0] = i;
     		posicion[1] = j;
     	}
     	
-    	public boolean comer(int i, int j) {
-    		int[] eliminar = new int[2];
-    		if((i>0 && i<7) && (j>0 && j<7)) {
-    			eliminar[0] = i;
-    			eliminar[1] = j;
-    			if(posicion[1] > j) {
-    				j--;
-    				if(i<posicion[0]) {			
-    					i--;   			
-    				}else {
-    					i++;
-    				}
-    			}else {
-    					j++;
-    				if(i<posicion[0]) {
-    					i--;
-    				}else {
-    					i++;
-    				}
-    			}
-    			if(!squares[i][j].getTipoSquare()) {	
-    				squares[i][j].setBackground(Color.green);					
-    				squares[i][j].setTipo("comer_d");
-    				squares[i][j].setEnabled(true);
-    				squares[i][j].setPosition(i, j);
-    				squares[i][j].setEliminar(eliminar);
-    				squares[i][j].setPadre(posicion);
-    				System.out.println("2["+posicion[0]+"]"+"["+posicion[1]+"]" +  tipo);
-    				return true;
-    			}
-    		}
-    			return false;
-    		}
+    	
     }
    
 
+}
+class persona{
+	private int estadisticas[];
+	private String[] datos;
+	public persona(int estadisticas[], String datos[]) {
+		this.estadisticas = estadisticas;
+		
+		this.datos = datos;
+	}
+	public String[] getDatos() {
+		return datos;
+	}
+	public int[] getEstadisticas() {
+	return estadisticas;	
+	}
 }
